@@ -33,13 +33,11 @@ class _HomeScreenState extends State<HomeScreen> {
   List<CameraDescription> cameras = [];
   int _selectedCameraIndex = 0;
 
-  // New variables for photo capture
   bool _isCapturing = false;
   bool _smileToSnapEnabled = false;
   bool _hasSmiled = false;
   int _smileCounter = 0;
-  static const int _smileThreshold =
-      1; // Number of consecutive smile detections needed
+  static const int _smileThreshold = 3;
 
   @override
   void initState() {
@@ -61,8 +59,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
     if (cameraStatus != PermissionStatus.granted ||
         storageStatus != PermissionStatus.granted) {
-      print("Permissions Denied");
-      // Show dialog to user about required permissions
+      print("Izin ditolak!");
       _showPermissionDialog();
     }
   }
@@ -72,10 +69,8 @@ class _HomeScreenState extends State<HomeScreen> {
       context: context,
       builder: (BuildContext context) {
         return AlertDialog(
-          title: Text('Permissions Required'),
-          content: Text(
-            'This app needs camera and storage permissions to function properly.',
-          ),
+          title: Text('Akses membutuhkan izin!'),
+          content: Text('App ini butuh izin akses ke kamera dan penyimpanan.'),
           actions: [
             TextButton(
               child: Text('OK'),
@@ -91,7 +86,7 @@ class _HomeScreenState extends State<HomeScreen> {
     try {
       cameras = await availableCameras();
       if (cameras.isEmpty) {
-        print('No Cameras Found');
+        print('Kamera tidak ditemukan.');
         return;
       }
 
@@ -128,13 +123,13 @@ class _HomeScreenState extends State<HomeScreen> {
           });
         })
         .catchError((error) {
-          print("Error initializing camera controller: $error");
+          print("Error saat inisialisasi kamera: $error");
         });
   }
 
   void _toggleCamera() async {
     if (cameras.isEmpty || cameras.length < 2) {
-      print('Can\'t toggle camera. Not enough cameras available.');
+      print('Tidak bisa mengganti kamera. Kamera tidak tersedia.');
       return;
     }
     if (_controller != null && _controller!.value.isStreamingImages) {
@@ -180,7 +175,7 @@ class _HomeScreenState extends State<HomeScreen> {
           }
         }
       } catch (e) {
-        print("Error processing image: $e");
+        print("Error saat proses mengambil gambar. $e");
       } finally {
         _isDetecting = false;
       }
@@ -198,7 +193,6 @@ class _HomeScreenState extends State<HomeScreen> {
     for (Face face in faces) {
       final smileProb = face.smilingProbability ?? 0;
       if (smileProb > 0.7) {
-        // Threshold for detecting smile
         isSmiling = true;
         break;
       }
@@ -213,7 +207,6 @@ class _HomeScreenState extends State<HomeScreen> {
     } else {
       _smileCounter = 0;
       if (_hasSmiled) {
-        // Reset after a moment to allow for another smile capture
         Future.delayed(Duration(seconds: 2), () {
           if (mounted) {
             setState(() {
@@ -237,15 +230,12 @@ class _HomeScreenState extends State<HomeScreen> {
         _isCapturing = true;
       });
 
-      // Stop image stream temporarily
       if (_controller!.value.isStreamingImages) {
         await _controller!.stopImageStream();
       }
 
-      // Take the picture
       final XFile picture = await _controller!.takePicture();
 
-      // Save to gallery
       final result = await ImageGallerySaverPlus.saveFile(
         picture.path,
         name: isSmileSnap
@@ -253,14 +243,13 @@ class _HomeScreenState extends State<HomeScreen> {
             : "face_photo_${DateTime.now().millisecondsSinceEpoch}",
       );
 
-      // Show confirmation
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(
               isSmileSnap
-                  ? '😄 Smile captured! Photo saved to gallery'
-                  : '📸 Photo saved to gallery',
+                  ? '😄 Tertangkap basah sedang tersenyum! Foto telah tersimpan'
+                  : '📸 Foto telah tersimpan di gallery.',
             ),
             backgroundColor: isSmileSnap ? Colors.green : Colors.blue,
             duration: Duration(seconds: 2),
@@ -268,10 +257,9 @@ class _HomeScreenState extends State<HomeScreen> {
         );
       }
 
-      // Restart image stream for face detection
       _startFaceDetection();
     } catch (e) {
-      print("Error capturing photo: $e");
+      print("Error saat mengambil foto: $e");
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -315,7 +303,7 @@ class _HomeScreenState extends State<HomeScreen> {
       final bytes = _concatenatePlanes(image.planes);
       return InputImage.fromBytes(bytes: bytes, metadata: inputImageMetadata);
     } catch (e) {
-      print("Error converting camera image: $e");
+      print("Error saat mengkonversi kamera: $e");
       return null;
     }
   }
@@ -332,7 +320,7 @@ class _HomeScreenState extends State<HomeScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text("Face Detection Camera"),
+        title: Text("SMILEY: Face Detection Camera"),
         backgroundColor: Colors.blue,
         foregroundColor: Colors.white,
         actions: [
@@ -347,7 +335,6 @@ class _HomeScreenState extends State<HomeScreen> {
                 ? 'Disable Smile to Snap'
                 : 'Enable Smile to Snap',
           ),
-          // Camera toggle
           if (cameras.length > 1)
             IconButton(
               onPressed: _toggleCamera,
@@ -377,14 +364,12 @@ class _HomeScreenState extends State<HomeScreen> {
                   return Stack(
                     fit: StackFit.expand,
                     children: [
-                      // Camera Preview
                       Center(
                         child: AspectRatio(
                           aspectRatio: aspectRatio,
                           child: CameraPreview(_controller!),
                         ),
                       ),
-                      // Face Detection Overlay
                       CustomPaint(
                         painter: FaceDetectionPainter(
                           faces: _faces,
@@ -396,7 +381,6 @@ class _HomeScreenState extends State<HomeScreen> {
                               _controller!.description.lensDirection,
                         ),
                       ),
-                      // Status indicators
                       Positioned(
                         top: 20,
                         left: 0,
@@ -417,7 +401,7 @@ class _HomeScreenState extends State<HomeScreen> {
                                 ),
                                 child: Text(
                                   _hasSmiled
-                                      ? '😄 Smile Detected!'
+                                      ? '😄 Terdeteksi sedang tersenyum!'
                                       : '😊 Smile to Snap: ON',
                                   style: TextStyle(
                                     color: Colors.white,
@@ -449,7 +433,6 @@ class _HomeScreenState extends State<HomeScreen> {
                           ],
                         ),
                       ),
-                      // Face count indicator
                       Positioned(
                         bottom: 100,
                         left: 0,
